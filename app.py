@@ -219,14 +219,21 @@ if "analysis_results" in st.session_state:
             st.plotly_chart(fig_gc, use_container_width=True)
 
         with tab4:
-            st.markdown("### Most Common Homopolymers")
-            homo_df = df[df['Max_homopolymer_run'] > 0].copy()
+            st.markdown("### Most Common Homopolymers (> 2 bp)")
+            # Filter homopolymers strictly larger than 2 bp
+            homo_df = df[df['Max_homopolymer_run'] > 2].copy()
             if not homo_df.empty:
+                total_unique_barcodes = len(df)
+                total_reads_with_barcodes = df['read_counts'].sum()
+
                 homo_summary = homo_df.groupby("Max_homopolymer_seq").agg(
                     Run_Length=("Max_homopolymer_run", "first"),
                     Unique_Barcodes=("barcode_seq", "count"),
                     Total_Read_Count=("read_counts", "sum")
                 ).reset_index()
+                
+                homo_summary["Read_Count_Pct"] = (homo_summary["Total_Read_Count"] / total_reads_with_barcodes) * 100
+                homo_summary["Unique_Barcodes_Pct"] = (homo_summary["Unique_Barcodes"] / total_unique_barcodes) * 100
                 
                 homo_summary = homo_summary.sort_values(by="Total_Read_Count", ascending=False).reset_index(drop=True)
                 
@@ -234,23 +241,28 @@ if "analysis_results" in st.session_state:
                 fig_homo = px.bar(
                     top_homo,
                     x='Max_homopolymer_seq',
-                    y='Total_Read_Count',
-                    hover_data=['Run_Length', 'Unique_Barcodes'],
+                    y='Read_Count_Pct',
+                    hover_data=['Run_Length', 'Total_Read_Count', 'Unique_Barcodes'],
                     labels={
                         'Max_homopolymer_seq': 'Homopolymer Sequence',
+                        'Read_Count_Pct': '% of Total Reads',
                         'Total_Read_Count': 'Total Read Count',
                         'Unique_Barcodes': 'Unique Barcodes Count'
                     },
-                    title='Top Most Frequent Homopolymers (Weighted by Read Counts)',
+                    title='Top Most Frequent Homopolymers > 2 bp (% of Total Read Counts)',
                     color='Run_Length',
                     color_continuous_scale='Viridis'
                 )
                 st.plotly_chart(fig_homo, use_container_width=True)
                 
-                st.markdown("#### Summary Table of Homopolymer Sequences")
-                st.dataframe(homo_summary, use_container_width=True)
+                st.markdown("#### Summary Table of Homopolymer Sequences (> 2 bp)")
+                display_summary = homo_summary.copy()
+                display_summary['Read_Count_Pct'] = display_summary['Read_Count_Pct'].map(lambda x: f"{x:.2f}%")
+                display_summary['Unique_Barcodes_Pct'] = display_summary['Unique_Barcodes_Pct'].map(lambda x: f"{x:.2f}%")
+                
+                st.dataframe(display_summary, use_container_width=True)
             else:
-                st.info("No homopolymers detected.")
+                st.info("No homopolymers larger than 2 bp detected.")
 
         with tab5:
             if check_nnk is not None:
