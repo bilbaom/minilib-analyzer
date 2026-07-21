@@ -1,9 +1,13 @@
 import streamlit as st
-import tempfile
+import sys
 import os
+import tempfile
 import pandas as pd
 import plotly.express as px
 from collections import Counter
+
+# Ensure current directory is in sys.path for Posit Connect Cloud deployment
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import functions from the user's script
 from extract_barcodes_mini import (
