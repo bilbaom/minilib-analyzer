@@ -173,7 +173,7 @@ if "analysis_results" in st.session_state:
         st.divider()
         st.subheader("Data Visualizations")
         
-        tab1, tab2, tab3, tab4 = st.tabs(["Count Distribution", "Size Distribution", "GC Content", "NNK & Stop Codons"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Count Distribution", "Size Distribution", "GC Content", "Homopolymers", "NNK & Stop Codons"])
         
         with tab1:
             st.markdown("### Barcode Count Distribution (All Barcodes)")
@@ -217,8 +217,42 @@ if "analysis_results" in st.session_state:
                 title='GC Content Distribution (Weighted by Read Counts)'
             )
             st.plotly_chart(fig_gc, use_container_width=True)
-            
+
         with tab4:
+            st.markdown("### Most Common Homopolymers")
+            homo_df = df[df['Max_homopolymer_run'] > 0].copy()
+            if not homo_df.empty:
+                homo_summary = homo_df.groupby("Max_homopolymer_seq").agg(
+                    Run_Length=("Max_homopolymer_run", "first"),
+                    Unique_Barcodes=("barcode_seq", "count"),
+                    Total_Read_Count=("read_counts", "sum")
+                ).reset_index()
+                
+                homo_summary = homo_summary.sort_values(by="Total_Read_Count", ascending=False).reset_index(drop=True)
+                
+                top_homo = homo_summary.head(20)
+                fig_homo = px.bar(
+                    top_homo,
+                    x='Max_homopolymer_seq',
+                    y='Total_Read_Count',
+                    hover_data=['Run_Length', 'Unique_Barcodes'],
+                    labels={
+                        'Max_homopolymer_seq': 'Homopolymer Sequence',
+                        'Total_Read_Count': 'Total Read Count',
+                        'Unique_Barcodes': 'Unique Barcodes Count'
+                    },
+                    title='Top Most Frequent Homopolymers (Weighted by Read Counts)',
+                    color='Run_Length',
+                    color_continuous_scale='Viridis'
+                )
+                st.plotly_chart(fig_homo, use_container_width=True)
+                
+                st.markdown("#### Summary Table of Homopolymer Sequences")
+                st.dataframe(homo_summary, use_container_width=True)
+            else:
+                st.info("No homopolymers detected.")
+
+        with tab5:
             if check_nnk is not None:
                 checked_df = df[df['NNK_pattern'] != 'NA']
                 if not checked_df.empty:
