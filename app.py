@@ -105,126 +105,142 @@ if st.button("Run Analysis", type="primary"):
                     
             df = pd.DataFrame(results_data)
             
-            # Display stats
-            st.success("Analysis Complete!")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Reads Processed", stats['total_reads'])
-            col2.metric("Reads with Barcode", stats['reads_with_barcode'])
-            col3.metric("Unique Barcodes Found", len(counter))
+            # Save results in session state so interaction with widgets doesn't reset the page
+            st.session_state["analysis_results"] = {
+                "df": df,
+                "stats": stats,
+                "unique_barcodes": len(counter),
+                "check_nnk": check_nnk
+            }
+
+# Display results if available in session_state
+if "analysis_results" in st.session_state:
+    res = st.session_state["analysis_results"]
+    df = res["df"]
+    stats = res["stats"]
+    unique_barcodes = res["unique_barcodes"]
+    check_nnk = res["check_nnk"]
+
+    # Display stats
+    st.success("Analysis Complete!")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Reads Processed", stats['total_reads'])
+    col2.metric("Reads with Barcode", stats['reads_with_barcode'])
+    col3.metric("Unique Barcodes Found", unique_barcodes)
+    
+    st.divider()
+    
+    if not df.empty:
+        st.subheader("Results Data")
+        st.dataframe(df)
+        
+        # Download button
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Results CSV",
+            data=csv,
+            file_name='barcode_counts.csv',
+            mime='text/csv',
+        )
+        
+        st.divider()
+        st.subheader("Data Visualizations")
+        
+        tab1, tab2, tab3, tab4 = st.tabs(["Count Distribution", "Size Distribution", "GC Content", "NNK & Stop Codons"])
+        
+        with tab1:
+            st.markdown("### Barcode Count Distribution (All Barcodes)")
+            plot_df = df.copy().reset_index(drop=True)
+            plot_df['Rank'] = range(1, len(plot_df) + 1)
             
-            st.divider()
+            log_y = st.checkbox("Log scale for Read Counts", value=False, key="log_y_scale")
             
-            if not df.empty:
-                st.subheader("Results Data")
-                st.dataframe(df)
-                
-                # Download button
-                csv = df.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="Download Results CSV",
-                    data=csv,
-                    file_name='barcode_counts.csv',
-                    mime='text/csv',
-                )
-                
-                st.divider()
-                st.subheader("Data Visualizations")
-                
-                tab1, tab2, tab3, tab4 = st.tabs(["Count Distribution", "Size Distribution", "GC Content", "NNK & Stop Codons"])
-                
-                with tab1:
-                    st.markdown("### Barcode Count Distribution (All Barcodes)")
-                    plot_df = df.copy().reset_index(drop=True)
-                    plot_df['Rank'] = range(1, len(plot_df) + 1)
-                    
-                    log_y = st.checkbox("Log scale for Read Counts", value=False)
-                    
-                    fig_counts = px.line(
-                        plot_df,
-                        x='Rank',
-                        y='read_counts',
-                        hover_data=['barcode_seq', 'length', 'GC_content'],
-                        labels={'Rank': 'Barcode Rank (Sorted by Count)', 'read_counts': 'Read Count'},
-                        log_y=log_y,
-                        title='Read Count per Barcode (Rank-Abundance Curve)'
-                    )
-                    st.plotly_chart(fig_counts, use_container_width=True)
-                    
-                with tab2:
-                    st.markdown("### Barcode Size Distribution (Weighted by Read Counts)")
-                    fig_size = px.histogram(
-                        df,
-                        x='length',
-                        y='read_counts',
-                        histfunc='sum',
-                        labels={'length': 'Barcode Length (bp)', 'read_counts': 'Total Read Count'},
-                        title='Length Distribution (Weighted by Read Counts)'
-                    )
-                    st.plotly_chart(fig_size, use_container_width=True)
+            fig_counts = px.line(
+                plot_df,
+                x='Rank',
+                y='read_counts',
+                hover_data=['barcode_seq', 'length', 'GC_content'],
+                labels={'Rank': 'Barcode Rank (Sorted by Count)', 'read_counts': 'Read Count'},
+                log_y=log_y,
+                title='Read Count per Barcode (Rank-Abundance Curve)'
+            )
+            st.plotly_chart(fig_counts, use_container_width=True)
+            
+        with tab2:
+            st.markdown("### Barcode Size Distribution (Weighted by Read Counts)")
+            fig_size = px.histogram(
+                df,
+                x='length',
+                y='read_counts',
+                histfunc='sum',
+                labels={'length': 'Barcode Length (bp)', 'read_counts': 'Total Read Count'},
+                title='Length Distribution (Weighted by Read Counts)'
+            )
+            st.plotly_chart(fig_size, use_container_width=True)
 
-                with tab3:
-                    st.markdown("### GC Content Distribution (Weighted by Read Counts)")
-                    fig_gc = px.histogram(
-                        df,
-                        x='GC_content',
-                        y='read_counts',
-                        histfunc='sum',
-                        nbins=50,
-                        labels={'GC_content': 'GC Content (%)', 'read_counts': 'Total Read Count'},
-                        title='GC Content Distribution (Weighted by Read Counts)'
-                    )
-                    st.plotly_chart(fig_gc, use_container_width=True)
+        with tab3:
+            st.markdown("### GC Content Distribution (Weighted by Read Counts)")
+            fig_gc = px.histogram(
+                df,
+                x='GC_content',
+                y='read_counts',
+                histfunc='sum',
+                nbins=50,
+                labels={'GC_content': 'GC Content (%)', 'read_counts': 'Total Read Count'},
+                title='GC Content Distribution (Weighted by Read Counts)'
+            )
+            st.plotly_chart(fig_gc, use_container_width=True)
+            
+        with tab4:
+            if check_nnk is not None:
+                checked_df = df[df['NNK_pattern'] != 'NA']
+                if not checked_df.empty:
+                    total_unique = len(checked_df)
+                    total_reads = checked_df['read_counts'].sum()
                     
-                with tab4:
-                    if check_nnk is not None:
-                        checked_df = df[df['NNK_pattern'] != 'NA']
-                        if not checked_df.empty:
-                            total_unique = len(checked_df)
-                            total_reads = checked_df['read_counts'].sum()
-                            
-                            nnk_yes_unique = (checked_df['NNK_pattern'] == 'Yes').sum()
-                            nnk_yes_reads = checked_df[checked_df['NNK_pattern'] == 'Yes']['read_counts'].sum()
-                            nnk_pct_u = (nnk_yes_unique / total_unique) * 100
-                            nnk_pct_r = (nnk_yes_reads / total_reads) * 100 if total_reads > 0 else 0
-                            
-                            stop_yes_unique = (checked_df['Stop_codon'] == 'Yes').sum()
-                            stop_yes_reads = checked_df[checked_df['Stop_codon'] == 'Yes']['read_counts'].sum()
-                            stop_pct_u = (stop_yes_unique / total_unique) * 100
-                            stop_pct_r = (stop_yes_reads / total_reads) * 100 if total_reads > 0 else 0
+                    nnk_yes_unique = (checked_df['NNK_pattern'] == 'Yes').sum()
+                    nnk_yes_reads = checked_df[checked_df['NNK_pattern'] == 'Yes']['read_counts'].sum()
+                    nnk_pct_u = (nnk_yes_unique / total_unique) * 100
+                    nnk_pct_r = (nnk_yes_reads / total_reads) * 100 if total_reads > 0 else 0
+                    
+                    stop_yes_unique = (checked_df['Stop_codon'] == 'Yes').sum()
+                    stop_yes_reads = checked_df[checked_df['Stop_codon'] == 'Yes']['read_counts'].sum()
+                    stop_pct_u = (stop_yes_unique / total_unique) * 100
+                    stop_pct_r = (stop_yes_reads / total_reads) * 100 if total_reads > 0 else 0
 
-                            st.markdown("### NNK Pattern & Stop Codon Analysis")
-                            col_m1, col_m2 = st.columns(2)
-                            with col_m1:
-                                st.metric("NNK Pattern Match (Unique Barcodes)", f"{nnk_pct_u:.2f}%", f"{nnk_yes_unique} / {total_unique}")
-                                st.metric("NNK Pattern Match (Weighted by Reads)", f"{nnk_pct_r:.2f}%", f"{nnk_yes_reads} / {total_reads} reads")
-                            with col_m2:
-                                st.metric("Stop Codon Presence (Unique Barcodes)", f"{stop_pct_u:.2f}%", f"{stop_yes_unique} / {total_unique}")
-                                st.metric("Stop Codon Presence (Weighted by Reads)", f"{stop_pct_r:.2f}%", f"{stop_yes_reads} / {total_reads} reads")
+                    st.markdown("### NNK Pattern & Stop Codon Analysis")
+                    col_m1, col_m2 = st.columns(2)
+                    with col_m1:
+                        st.metric("NNK Pattern Match (Unique Barcodes)", f"{nnk_pct_u:.2f}%", f"{nnk_yes_unique} / {total_unique}")
+                        st.metric("NNK Pattern Match (Weighted by Reads)", f"{nnk_pct_r:.2f}%", f"{nnk_yes_reads} / {total_reads} reads")
+                    with col_m2:
+                        st.metric("Stop Codon Presence (Unique Barcodes)", f"{stop_pct_u:.2f}%", f"{stop_yes_unique} / {total_unique}")
+                        st.metric("Stop Codon Presence (Weighted by Reads)", f"{stop_pct_r:.2f}%", f"{stop_yes_reads} / {total_reads} reads")
 
-                            st.divider()
-                            col_p1, col_p2 = st.columns(2)
-                            with col_p1:
-                                st.markdown("#### NNK Pattern Conformance")
-                                nnk_counts = checked_df['NNK_pattern'].value_counts().reset_index()
-                                nnk_counts.columns = ['Conforms to NNK', 'Count']
-                                fig_nnk = px.pie(
-                                    nnk_counts, values='Count', names='Conforms to NNK',
-                                    color='Conforms to NNK', color_discrete_map={'Yes': 'green', 'No': 'red'}
-                                )
-                                st.plotly_chart(fig_nnk, use_container_width=True)
+                    st.divider()
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        st.markdown("#### NNK Pattern Conformance")
+                        nnk_counts = checked_df['NNK_pattern'].value_counts().reset_index()
+                        nnk_counts.columns = ['Conforms to NNK', 'Count']
+                        fig_nnk = px.pie(
+                            nnk_counts, values='Count', names='Conforms to NNK',
+                            color='Conforms to NNK', color_discrete_map={'Yes': 'green', 'No': 'red'}
+                        )
+                        st.plotly_chart(fig_nnk, use_container_width=True)
 
-                            with col_p2:
-                                st.markdown("#### Stop Codon Distribution")
-                                stop_counts = checked_df['Stop_codon'].value_counts().reset_index()
-                                stop_counts.columns = ['Has Stop Codon', 'Count']
-                                fig_stops = px.pie(
-                                    stop_counts, values='Count', names='Has Stop Codon',
-                                    color='Has Stop Codon', color_discrete_map={'Yes': 'red', 'No': 'green'}
-                                )
-                                st.plotly_chart(fig_stops, use_container_width=True)
-                        else:
-                            st.info("No barcodes matched the specified NNK check length.")
-                    else:
-                        st.info("NNK & Stop codon checking was not enabled. Enable it in the sidebar parameters to see this analysis.")
+                    with col_p2:
+                        st.markdown("#### Stop Codon Distribution")
+                        stop_counts = checked_df['Stop_codon'].value_counts().reset_index()
+                        stop_counts.columns = ['Has Stop Codon', 'Count']
+                        fig_stops = px.pie(
+                            stop_counts, values='Count', names='Has Stop Codon',
+                            color='Has Stop Codon', color_discrete_map={'Yes': 'red', 'No': 'green'}
+                        )
+                        st.plotly_chart(fig_stops, use_container_width=True)
+                else:
+                    st.info("No barcodes matched the specified NNK check length.")
             else:
-                st.warning("No barcodes were found matching the criteria.")
+                st.info("NNK & Stop codon checking was not enabled. Enable it in the sidebar parameters to see this analysis.")
+    else:
+        st.warning("No barcodes were found matching the criteria.")
