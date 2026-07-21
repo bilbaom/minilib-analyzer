@@ -14,11 +14,12 @@ from extract_barcodes_mini import (
     build_pattern, process_file, is_nnk, find_stop_codons, gc_content, max_homopolymer_run
 )
 
-st.set_page_config(page_title="Barcode Extractor", layout="wide")
-st.title("🧬 Sequencing FastQ Barcode Extractor")
+st.set_page_config(page_title="minilib-analyzer", page_icon="🧬", layout="wide")
+st.title("🧬 minilib-analyzer: Fast barcode library sequencing analysis")
 
 st.markdown("""
-Upload your sequencing library FASTQ file(s) to extract barcodes, count occurrences, and generate a summary CSV. 
+*Intended for small exploratory sequencing runs with Oxford Nanopore or Illumina.*  
+📦 **GitHub Repository:** [bilbaom/minilib-analyzer](https://github.com/bilbaom/minilib-analyzer)
 """)
 
 # Sidebar for parameters
