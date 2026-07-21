@@ -113,6 +113,33 @@ if st.button("Run Analysis", type="primary"):
                 "check_nnk": check_nnk
             }
 
+st.divider()
+
+# Parameter and Script Logic Guide
+with st.expander("📖 Analysis Logic & Parameter Guide", expanded=("analysis_results" not in st.session_state)):
+    st.markdown("""
+    ### 🧬 How the Analysis Works
+    1. **Dual-Strand Scanning**: For every read in your FASTQ file(s), the algorithm scans both the **forward sequence** and its **reverse complement**. This captures barcodes regardless of sequencing orientation.
+    2. **Flank Pattern Matching**: Searches for sequences framed by `[LEFT FLANK] + [BARCODE] + [RIGHT FLANK]`.
+    3. **Feature Extraction**:
+       - Aggregates barcode counts to rank unique sequences.
+       - Calculates **GC Content %** for each barcode.
+       - Detects **Max Homopolymer Runs** (e.g. `AAAAA`) to highlight potential sequencing or synthesis artifacts.
+       - Performs open reading frame (ORF) checks (NNK pattern and Stop codons) if enabled.
+
+    ---
+
+    ### ⚙️ Parameter Reference Guide
+    * **Left / Right Flanks**: The constant DNA sequences flanking the variable barcode (default: `ttgcagagctca` and `aatacagctccc`).
+    * **Barcode Length (Fixed vs. Range)**:
+      * **Fixed Length**: Recommended when your library has a known length design (e.g., 21 bp for a 7-codon library). Prevents spurious short matches.
+      * **Min / Max Length**: Allows extracting variable-length barcodes within a custom range [min, max].
+    * **Allowed Mismatches**: Number of tolerated mismatches/edits per flank sequence (requires the `regex` library).
+    * **NNK & Stop Codon Check**:
+      * **NNK Codons**: Checks if codons follow $N-N-K$ ($N = A,C,G,T$; $K = G,T$), commonly used in mutagenesis libraries to encode all 20 amino acids while eliminating 2 of 3 stop codons.
+      * **Stop Codons**: Identifies in-frame stop codons ($TAA$, $TAG$, $TGA$).
+    """)
+
 # Display results if available in session_state
 if "analysis_results" in st.session_state:
     res = st.session_state["analysis_results"]
