@@ -3,6 +3,7 @@ import sys
 import os
 import tempfile
 import pandas as pd
+import numpy as np
 import plotly.express as px
 from collections import Counter
 
@@ -171,6 +172,26 @@ if "analysis_results" in st.session_state:
             mime='text/csv',
         )
         
+        st.divider()
+        st.subheader("Library Diversity")
+
+        counts = df['read_counts'].values
+        total_reads_div = counts.sum()
+        proportions = counts / total_reads_div
+        shannon_index = -np.sum(proportions * np.log(proportions))
+        richness = len(counts)
+        pielou_evenness = shannon_index / np.log(richness) if richness > 1 else np.nan
+
+        col_div1, col_div2 = st.columns(2)
+        col_div1.metric("Shannon Diversity Index (H')", f"{shannon_index:.3f}")
+        col_div2.metric("Pielou Evenness (J')", f"{pielou_evenness:.3f}" if richness > 1 else "N/A")
+        st.caption(
+            "Shannon Diversity Index (H') measures barcode library diversity based on read count proportions "
+            "(higher = more diverse). Pielou Evenness (J' = H' / ln(S), where S = unique barcode count) "
+            "measures how evenly reads are distributed across barcodes, ranging from 0 (dominated by few "
+            "barcodes) to 1 (perfectly even representation)."
+        )
+
         st.divider()
         st.subheader("Data Visualizations")
         
