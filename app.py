@@ -19,7 +19,8 @@ st.set_page_config(page_title="minilib-analyzer", page_icon="🧬", layout="wide
 st.title("🧬 minilib-analyzer: Fast barcode library sequencing analysis")
 
 st.markdown("""
-*Intended for small exploratory sequencing runs with Oxford Nanopore or Illumina.*  
+*Intended for small exploratory sequencing runs with Oxford Nanopore or Illumina.
+Extracts, quantifies and analyzes barcodes flanked by user-defined constant sequences from FASTQ reads*  
 📦 **GitHub Repository:** [bilbaom/minilib-analyzer](https://github.com/bilbaom/minilib-analyzer)
 """)
 
